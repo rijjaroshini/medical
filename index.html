@@ -7,6 +7,7 @@
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     
@@ -25,17 +26,9 @@
         .stop-btn { background: var(--danger); color: white; padding: 15px; border-radius: 10px; font-weight: bold; margin-top: 10px; cursor: pointer; border: none; width: 100%; font-size: 16px; touch-action: manipulation; }
         .snooze-btn { background: var(--accent); color: white; padding: 10px; border-radius: 10px; margin-top: 10px; cursor: pointer; border: none; width: 100%; touch-action: manipulation; }
 
-        /* Status bar */
-        #statusBar {
-            background: var(--card); border-radius: 10px; padding: 10px 15px;
-            margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;
-        }
+        #statusBar { background: var(--card); border-radius: 10px; padding: 10px 15px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
         #statusText { font-size: 12px; font-weight: bold; }
-        #activateBtn {
-            background: var(--accent); color: white; border: none; border-radius: 8px;
-            padding: 6px 14px; font-size: 12px; cursor: pointer; touch-action: manipulation;
-            display: none;
-        }
+        #activateBtn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer; touch-action: manipulation; }
 
         .input-card { background: var(--card); padding: 15px; border-radius: 15px; border: 1px solid #334155; margin-bottom: 15px; }
         input[type="text"], input[type="time"], input[type="date"] { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; }
@@ -45,6 +38,9 @@
         .btn { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; background: var(--accent); border: none; color: white; font-weight: bold; height: 45px; cursor: pointer; touch-action: manipulation; box-sizing: border-box; }
         .btn-pdf { background: var(--success); }
         #searchBox { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--accent); background: #1e293b; color: white; box-sizing: border-box; margin-bottom: 15px; }
+
+        .settings-row { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+        .opt-box { flex: 1; min-width: 60px; background: #0f172a; padding: 5px; border-radius: 5px; text-align: center; font-size: 10px; border: 1px solid #334155; }
 
         .med-item { background: var(--card); border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid var(--accent); }
         .med-header { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
@@ -59,11 +55,7 @@
         .day-box { background: #0f172a; padding: 6px 2px; border-radius: 6px; text-align: center; font-size: 10px; border: 1px solid #334155; cursor: pointer; touch-action: manipulation; }
         .day-box.taken { background: var(--success); color: white; border-color: #10b981; font-weight: bold; }
         .day-box.today { border-color: var(--accent) !important; border-width: 2px; }
-        .settings-row { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
-        .opt-box { flex: 1; min-width: 60px; background: #0f172a; padding: 5px; border-radius: 5px; text-align: center; font-size: 10px; border: 1px solid #334155; }
         .hidden { display: none !important; }
-
-        /* Loading */
         #loadingMsg { text-align: center; color: #64748b; font-size: 13px; padding: 20px; }
     </style>
 </head>
@@ -77,10 +69,9 @@
         <button class="snooze-btn" id="snoozeBtn">⏳ SNOOZE / WAIT</button>
     </div>
 
-    <!-- ✅ Status bar - auto status dikhata hai -->
     <div id="statusBar">
         <span id="statusText" style="color:#f59e0b;">⏳ Load ho raha hai...</span>
-        <button id="activateBtn" onclick="manualActivate()">🔔 Activate Karein</button>
+        <button id="activateBtn" onclick="unlockAudio()">🔔 Activate Karein</button>
     </div>
 
     <div class="input-card">
@@ -95,8 +86,7 @@
         <div id="fileName">Koi file select nahi</div>
         <div class="settings-row">
             <div class="opt-box">🔊 Audio <br><input type="checkbox" id="cSnd" checked></div>
-            <div class="opt-box">📳 Vib <br><input type="checkbox" id="cVib" checked></div>
-            <div class="opt-box">🗣️ Voice <br><input type="checkbox" id="cVce" checked></div>
+            <div class="opt-box">📳 Vibration <br><input type="checkbox" id="cVib" checked></div>
             <div class="opt-box" style="border-color:var(--accent);">🔁 Repeat <br><input type="checkbox" id="cRep" checked></div>
         </div>
         <button class="btn" id="saveBtn">💾 Save Schedule</button>
@@ -121,72 +111,80 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const messaging = firebase.messaging();
+
+    // ✅ VAPID KEY - Firebase Console se lein (steps neeche hain)
+    const VAPID_KEY = "YOUR_VAPID_KEY_HERE";
 
     let firing = false, persistentInterval = null, currentMedId = null;
     let audioUnlocked = false, monitorIntervals = {}, audioCtx = null;
     const alarmAudio = document.getElementById('alarmAudio');
 
-    // Cleanup old stoppedToday
     let stoppedToday = JSON.parse(localStorage.getItem('stoppedAlarms')) || {};
     const todayStr = new Date().toDateString();
     Object.keys(stoppedToday).forEach(k => { if (stoppedToday[k] !== todayStr) delete stoppedToday[k]; });
     localStorage.setItem('stoppedAlarms', JSON.stringify(stoppedToday));
 
-    // ✅ AUTO START - page load hone par automatic shuru
-    window.addEventListener('load', () => {
-        setTimeout(() => {
-            // Try auto-unlock (works if browser allows)
-            tryAutoUnlock();
-        }, 500);
+    // ✅ Service Worker register karo (background notifications ke liye)
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/firebase-messaging-sw.js')
+            .then(reg => {
+                console.log('Service Worker registered');
+                setupFCM();
+            }).catch(e => console.log('SW error:', e));
+    }
+
+    async function setupFCM() {
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                const token = await messaging.getToken({ vapidKey: VAPID_KEY });
+                if (token) {
+                    await db.collection("fcm_tokens").doc(token).set({
+                        token: token,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log("FCM Token saved:", token);
+                }
+            }
+        } catch(e) { console.log("FCM setup error:", e); }
+    }
+
+    // FCM foreground message
+    messaging.onMessage(payload => {
+        const { title, body } = payload.notification;
+        if (Notification.permission === 'granted') {
+            new Notification(title, { body, icon: '/icon.png' });
+        }
     });
 
-    // ✅ Koi bhi touch kare to unlock ho jaye
+    // Auto unlock on any touch
     document.addEventListener('touchstart', unlockAudio, { once: true });
     document.addEventListener('click', unlockAudio, { once: true });
 
-    function tryAutoUnlock() {
-        // Status update
-        setStatus("⚠️ Screen ko ek baar tap karein", "#f59e0b", true);
-    }
+    window.addEventListener('load', () => {
+        setStatus("⚠️ Ek baar screen tap karein", "#f59e0b");
+    });
 
     function unlockAudio() {
         if (audioUnlocked) return;
         audioUnlocked = true;
-
-        // Web Audio API
         try {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const buf = audioCtx.createBuffer(1, 1, 22050);
             const src = audioCtx.createBufferSource();
             src.buffer = buf; src.connect(audioCtx.destination); src.start(0);
         } catch(e) {}
-
-        // HTML Audio unlock
         alarmAudio.play().then(() => { alarmAudio.pause(); alarmAudio.currentTime = 0; }).catch(() => {});
-
-        // Voice unlock
-        if (window.speechSynthesis) {
-            window.speechSynthesis.getVoices();
-            const u = new SpeechSynthesisUtterance(''); u.volume = 0;
-            window.speechSynthesis.speak(u);
-        }
-
-        if ("Notification" in window) Notification.requestPermission();
-
-        setStatus("● SYSTEM ACTIVE - Alarms On", "#10b981", false);
+        setStatus("● SYSTEM ACTIVE - Alarms On ✅", "#10b981");
+        document.getElementById('activateBtn').style.display = 'none';
     }
 
-    function manualActivate() {
-        unlockAudio();
-    }
-
-    function setStatus(text, color, showBtn) {
+    function setStatus(text, color) {
         document.getElementById('statusText').innerText = text;
         document.getElementById('statusText').style.color = color;
-        document.getElementById('activateBtn').style.display = showBtn ? 'block' : 'none';
     }
 
-    // Buttons
     document.getElementById('stopBtn').addEventListener('click', e => { e.stopPropagation(); permanentStop(); });
     document.getElementById('snoozeBtn').addEventListener('click', e => { e.stopPropagation(); silence(); });
     document.getElementById('saveBtn').addEventListener('click', addMed);
@@ -209,22 +207,6 @@
                 osc.start(audioCtx.currentTime + offset); osc.stop(audioCtx.currentTime + offset + 0.4);
             });
         } catch(e) {}
-    }
-
-    function speakVoice(name) {
-        if (!window.speechSynthesis) return;
-        window.speechSynthesis.cancel();
-        const speak = () => {
-            const msg = new SpeechSynthesisUtterance("Medicine time for " + name);
-            msg.lang = 'en-US'; msg.rate = 0.85; msg.pitch = 1; msg.volume = 1;
-            const voices = window.speechSynthesis.getVoices();
-            const enVoice = voices.find(v => v.lang.startsWith('en'));
-            if (enVoice) msg.voice = enVoice;
-            window.speechSynthesis.speak(msg);
-        };
-        if (window.speechSynthesis.getVoices().length === 0) {
-            window.speechSynthesis.onvoiceschanged = speak;
-        } else { setTimeout(speak, 500); }
     }
 
     async function downloadHistoryPDF() {
@@ -259,7 +241,6 @@
             name: n, time: t, start: s, end: e, sound: sd,
             useSnd: document.getElementById('cSnd').checked,
             useVib: document.getElementById('cVib').checked,
-            useVce: document.getElementById('cVce').checked,
             repeat: document.getElementById('cRep').checked,
             taken: []
         });
@@ -269,59 +250,47 @@
         alert("✅ Medicine save ho gayi!");
     }
 
-    // ✅ Firebase se real-time data - app reopen par bhi load hoga
     db.collection("medicines").onSnapshot(snap => {
         document.getElementById('loadingMsg').style.display = 'none';
         document.getElementById('list').innerHTML = "";
-
         if (snap.empty) {
             document.getElementById('list').innerHTML = '<p style="text-align:center;color:#64748b;font-size:13px;">Koi medicine add nahi ki abhi tak</p>';
             return;
         }
-
         snap.forEach(doc => {
             render(doc.id, doc.data());
             if (monitorIntervals[doc.id]) clearInterval(monitorIntervals[doc.id]);
             monitor(doc.id, doc.data());
         });
         filterMeds();
-    }, err => {
-        document.getElementById('loadingMsg').innerText = "❌ Firebase se connect nahi ho saka. Internet check karein.";
+    }, () => {
+        document.getElementById('loadingMsg').innerText = "❌ Firebase connect nahi hua. Internet check karein.";
     });
 
     function render(id, data) {
         const taken = data.taken || [];
         const today = new Date().toDateString();
-
         let takenHTML = taken.length > 0
             ? taken.sort().reverse().map(d => `<span class="taken-date">✅ ${d}</span>`).join('')
             : `<span class="no-history">Abhi tak koi dose nahi liya</span>`;
-
         let calHTML = "";
         if (data.start && data.end) {
-            let curr = new Date(data.start + "T00:00:00");
-            let last = new Date(data.end + "T00:00:00");
+            let curr = new Date(data.start + "T00:00:00"), last = new Date(data.end + "T00:00:00");
             if (!isNaN(curr) && !isNaN(last)) {
-                calHTML = `<div style="margin-top:10px;font-size:11px;color:#94a3b8;">📅 Calendar (tap = mark taken)</div><div class="calendar-grid">`;
+                calHTML = `<div style="margin-top:10px;font-size:11px;color:#94a3b8;">📅 Calendar</div><div class="calendar-grid">`;
                 while (curr <= last) {
-                    const dStr = curr.toDateString();
-                    const isT = taken.includes(dStr);
-                    const isToday = dStr === today ? 'today' : '';
+                    const dStr = curr.toDateString(), isT = taken.includes(dStr), isToday = dStr === today ? 'today' : '';
                     calHTML += `<div class="day-box ${isT?'taken':''} ${isToday}" onclick="markTaken('${id}','${dStr}')">${curr.getDate()}</div>`;
                     curr.setDate(curr.getDate() + 1);
                 }
                 calHTML += `</div>`;
             }
         }
-
         document.getElementById('list').insertAdjacentHTML('beforeend', `
         <div class="med-item" id="item-${id}" data-name="${data.name.toLowerCase()}">
             <div class="med-header">
                 <div><strong>${data.name}</strong></div>
-                <div>
-                    <span class="time-badge">${data.time}</span>
-                    <button class="del-btn" onclick="del('${id}')">🗑️</button>
-                </div>
+                <div><span class="time-badge">${data.time}</span><button class="del-btn" onclick="del('${id}')">🗑️</button></div>
             </div>
             <div class="history-section">
                 <div class="history-title">📋 Lene ki Tarikh:</div>
@@ -338,9 +307,7 @@
             const timeNow = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0');
             const today = now.toDateString();
             if (stoppedToday[id] === today) return;
-            if (timeNow === data.time && data.taken && !data.taken.includes(today)) {
-                fireAlarm(id, data);
-            }
+            if (timeNow === data.time && data.taken && !data.taken.includes(today)) fireAlarm(id, data);
         }, 1000);
     }
 
@@ -353,7 +320,6 @@
                 if (data.sound) { alarmAudio.src = data.sound; alarmAudio.play().catch(() => playBeep()); }
                 else playBeep();
             }
-            if (data.useVce) speakVoice(data.name);
             if (data.useVib && navigator.vibrate) navigator.vibrate([600,200,600,200,600]);
         };
         startAlert();
@@ -373,7 +339,6 @@
     function silence() {
         firing = false; clearInterval(persistentInterval);
         alarmAudio.pause(); alarmAudio.currentTime = 0; alarmAudio.src = "";
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
         document.getElementById('alarmPanel').style.display = "none";
     }
 
