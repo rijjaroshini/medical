@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Meds Tracker Pro - Final List</title>
+    <title>Meds Tracker Pro</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -12,6 +12,7 @@
     
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --accent: #3b82f6; --danger: #ef4444; --success: #10b981; --text: #f1f5f9; }
+        * { -webkit-tap-highlight-color: transparent; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 10px; margin: 0; }
         .container { max-width: 400px; margin: auto; }
         
@@ -21,41 +22,65 @@
             position: fixed; top: 0; left: 0; right: 0; z-index: 10000;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-bottom: 3px solid var(--danger);
         }
-        .stop-btn { background: var(--danger); color: white; padding: 15px; border-radius: 10px; font-weight: bold; margin-top: 10px; cursor: pointer; border: none; width: 100%; font-size: 16px; }
-        .snooze-btn { background: var(--accent); color: white; padding: 10px; border-radius: 10px; margin-top: 10px; cursor: pointer; border: none; width: 100%; }
+        .stop-btn { 
+            background: var(--danger); color: white; padding: 15px; border-radius: 10px; 
+            font-weight: bold; margin-top: 10px; cursor: pointer; border: none; 
+            width: 100%; font-size: 16px; 
+            -webkit-appearance: none; touch-action: manipulation;
+        }
+        .snooze-btn { 
+            background: var(--accent); color: white; padding: 10px; border-radius: 10px; 
+            margin-top: 10px; cursor: pointer; border: none; width: 100%;
+            -webkit-appearance: none; touch-action: manipulation;
+        }
 
         .input-card { background: var(--card); padding: 15px; border-radius: 15px; border: 1px solid #334155; margin-bottom: 15px; }
         input, .btn { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; }
-        .btn { background: var(--accent); border: none; font-weight: bold; height: 45px; cursor: pointer; }
+        .btn { 
+            background: var(--accent); border: none; font-weight: bold; height: 45px; cursor: pointer;
+            -webkit-appearance: none; touch-action: manipulation;
+        }
         .btn-pdf { background: var(--success); margin-top: 10px; border: none; font-size: 14px; }
         #searchBox { background: #1e293b; border: 1px solid var(--accent); margin-bottom: 15px; }
 
         .med-item { background: var(--card); border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid var(--accent); overflow: hidden; }
-        .med-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .med-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 5px 0; }
         .time-badge { background: #0f172a; padding: 4px 10px; border-radius: 6px; font-size: 14px; color: var(--accent); font-weight: bold; }
 
         .schedule-content { display: none; margin-top: 15px; border-top: 1px solid #334155; padding-top: 10px; }
         .calendar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 5px; }
-        .day-box { background: #0f172a; padding: 8px; border-radius: 6px; text-align: center; font-size: 11px; border: 1px solid #334155; }
+        .day-box { background: #0f172a; padding: 8px; border-radius: 6px; text-align: center; font-size: 11px; border: 1px solid #334155; cursor: pointer; touch-action: manipulation; }
         .day-box.taken { background: var(--success); color: white; border-color: #10b981; }
 
         .settings-row { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
         .opt-box { flex: 1; min-width: 60px; background: #0f172a; padding: 5px; border-radius: 5px; text-align: center; font-size: 10px; border: 1px solid #334155; }
-        .del-btn { color: #64748b; background: none; border: none; font-size: 18px; cursor: pointer; margin-left: 10px; }
+        .del-btn { color: #64748b; background: none; border: none; font-size: 18px; cursor: pointer; margin-left: 10px; touch-action: manipulation; padding: 5px; }
         #status { font-size: 11px; text-align: center; color: #94a3b8; margin-bottom: 10px; font-weight: bold; }
+        .hidden { display: none !important; }
+
+        /* Start button - visible at top */
+        #startBtn {
+            width: 100%; padding: 12px; background: var(--accent); color: white;
+            border: none; border-radius: 10px; font-size: 14px; font-weight: bold;
+            margin-bottom: 10px; cursor: pointer; touch-action: manipulation;
+            display: block;
+        }
+        #startBtn.active { background: var(--success); }
     </style>
 </head>
-<body onclick="initSystem()">
+<body>
 
 <div class="container">
     <div id="alarmPanel">
-        <h2 id="alarmTitle" style="margin:0; color:var(--danger);">MEDICINE TIME!</h2>
-        <p id="alarmMedName" style="font-size:18px; margin:10px 0; font-weight: bold;"></p>
-        <button class="stop-btn" onclick="permanentStop()">🛑 STOP FOR TODAY</button>
-        <button class="snooze-btn" onclick="silence()">⏳ SNOOZE / WAIT</button>
+        <h2 id="alarmTitle" style="margin:0; color:var(--danger);">💊 MEDICINE TIME!</h2>
+        <p id="alarmMedName" style="font-size:20px; margin:10px 0; font-weight:bold;"></p>
+        <button class="stop-btn" id="stopBtn">🛑 STOP FOR TODAY</button>
+        <button class="snooze-btn" id="snoozeBtn">⏳ SNOOZE / WAIT</button>
     </div>
 
-    <div id="status">⚠️ Tap anywhere to Start System</div>
+    <!-- FIX: Dedicated Start button instead of body onclick -->
+    <button id="startBtn" onclick="initSystem()">▶ START SYSTEM (Tap Here First)</button>
+    <div id="status">⚠️ System band hai</div>
 
     <div class="input-card">
         <input type="text" id="mName" placeholder="Medicine Name">
@@ -69,47 +94,81 @@
             <div class="opt-box">🔊 Audio <br> <input type="checkbox" id="cSnd" checked></div>
             <div class="opt-box">📳 Vib <br> <input type="checkbox" id="cVib" checked></div>
             <div class="opt-box">🗣️ Voice <br> <input type="checkbox" id="cVce" checked></div>
-            <div class="opt-box" style="border-color: var(--accent);">🔁 Persistent <br> <input type="checkbox" id="cRep" checked></div>
+            <div class="opt-box" style="border-color: var(--accent);">🔁 Repeat <br> <input type="checkbox" id="cRep" checked></div>
         </div>
-        <button class="btn" onclick="addMed()">Save Schedule</button>
-        <button class="btn btn-pdf" onclick="downloadHistoryPDF()">📥 Download History (PDF)</button>
+        <button class="btn" id="saveBtn">💾 Save Schedule</button>
+        <button class="btn btn-pdf" id="pdfBtn">📥 Download History (PDF)</button>
     </div>
 
-    <input type="text" id="searchBox" placeholder="Search medicine..." onkeyup="filterMeds()">
+    <input type="text" id="searchBox" placeholder="Search medicine...">
     <div id="list"></div>
 </div>
 
 <audio id="alarmAudio" loop></audio>
 
 <script>
-    // Firebase Config (Keep as is)
+    // ── Firebase ──────────────────────────────────────────
     const firebaseConfig = {
-      apiKey: "AIzaSyCBUF6IDj-YVEFovPjg9LvI7NOHhYEU_HE",
-      authDomain: "medstracker-2f8d8.firebaseapp.com",
-      projectId: "medstracker-2f8d8",
-      storageBucket: "medstracker-2f8d8.firebasestorage.app",
-      messagingSenderId: "689229781527",
-      appId: "1:689229781527:web:9b55a840aed8368d2c5a52"
+        apiKey: "AIzaSyCBUF6IDj-YVEFovPjg9LvI7NOHhYEU_HE",
+        authDomain: "medstracker-2f8d8.firebaseapp.com",
+        projectId: "medstracker-2f8d8",
+        storageBucket: "medstracker-2f8d8.firebasestorage.app",
+        messagingSenderId: "689229781527",
+        appId: "1:689229781527:web:9b55a840aed8368d2c5a52"
     };
-
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const audio = document.getElementById('alarmAudio');
 
     let firing = false;
-    let vibLoop = null;
-    let persistentInterval = null; // New variable for repetition
+    let persistentInterval = null;
     let currentMedId = null;
-    let stoppedToday = JSON.parse(localStorage.getItem('stoppedAlarms')) || {};
+    let systemStarted = false;
+    let monitorIntervals = {};
 
-    async function initSystem() {
-        if ("Notification" in window) { Notification.requestPermission(); }
-        audio.play().then(() => audio.pause()).catch(() => {});
+    // Clean old stopped alarms
+    let stoppedToday = JSON.parse(localStorage.getItem('stoppedAlarms')) || {};
+    const todayStr = new Date().toDateString();
+    Object.keys(stoppedToday).forEach(k => { if (stoppedToday[k] !== todayStr) delete stoppedToday[k]; });
+    localStorage.setItem('stoppedAlarms', JSON.stringify(stoppedToday));
+
+    // ── FIX 1: Buttons with addEventListener (works in WebView) ──
+    document.getElementById('stopBtn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        permanentStop();
+    });
+    document.getElementById('snoozeBtn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        silence();
+    });
+    document.getElementById('saveBtn').addEventListener('click', addMed);
+    document.getElementById('pdfBtn').addEventListener('click', downloadHistoryPDF);
+    document.getElementById('searchBox').addEventListener('input', filterMeds);
+
+    // ── FIX 2: initSystem ─────────────────────────────────
+    function initSystem() {
+        if (systemStarted) return;
+        systemStarted = true;
+
+        // Unlock audio for Android WebView
+        audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
+
+        // FIX 3: Voice unlock for Android WebView
+        if (window.speechSynthesis) {
+            const u = new SpeechSynthesisUtterance('');
+            u.volume = 0;
+            window.speechSynthesis.speak(u);
+        }
+
+        if ("Notification" in window) Notification.requestPermission();
+
         document.getElementById('status').innerText = "● SYSTEM ACTIVE";
         document.getElementById('status').style.color = "#10b981";
+        document.getElementById('startBtn').innerText = "✅ SYSTEM ACTIVE";
+        document.getElementById('startBtn').classList.add('active');
     }
 
-    // PDF Download
+    // ── PDF ───────────────────────────────────────────────
     async function downloadHistoryPDF() {
         try {
             const { jsPDF } = window.jspdf;
@@ -117,48 +176,89 @@
             doc.text("Medication History Report", 14, 20);
             const snapshot = await db.collection("medicines").get();
             const rows = [];
-            snapshot.forEach(docSnap => {
-                const data = docSnap.data();
-                if (data.taken) data.taken.forEach(date => rows.push([date, data.name, "✅ Taken"]));
+            snapshot.forEach(d => {
+                const data = d.data();
+                if (data.taken && data.taken.length > 0)
+                    data.taken.forEach(date => rows.push([date, data.name, "Taken"]));
             });
+            if (rows.length === 0) rows.push(["—", "No records", "—"]);
             doc.autoTable({ head: [['Date', 'Medicine', 'Status']], body: rows, startY: 30 });
             doc.save("Meds_History.pdf");
-        } catch (e) { alert(e.message); }
+        } catch (e) { alert("PDF Error: " + e.message); }
     }
 
+    // ── Add Medicine ──────────────────────────────────────
     async function addMed() {
-        const n=document.getElementById('mName').value, t=document.getElementById('mTime').value, s=document.getElementById('sDate').value, e=document.getElementById('eDate').value, f=document.getElementById('mFile').files[0];
-        if(!n || !t) return alert("Details missing");
+        const n = document.getElementById('mName').value.trim();
+        const t = document.getElementById('mTime').value;
+        const s = document.getElementById('sDate').value;
+        const e = document.getElementById('eDate').value;
+        const f = document.getElementById('mFile').files[0];
+        if (!n || !t) return alert("Medicine name aur time zaroor bharein!");
         let sd = f ? await toB64(f) : "";
-        db.collection("medicines").add({ 
-            name:n, time:t, start:s, end:e, sound:sd, 
-            useSnd:document.getElementById('cSnd').checked, 
-            useVib:document.getElementById('cVib').checked, 
-            useVce:document.getElementById('cVce').checked, 
-            repeat:document.getElementById('cRep').checked,
-            taken:[] 
+        await db.collection("medicines").add({
+            name: n, time: t, start: s, end: e, sound: sd,
+            useSnd: document.getElementById('cSnd').checked,
+            useVib: document.getElementById('cVib').checked,
+            useVce: document.getElementById('cVce').checked,
+            repeat: document.getElementById('cRep').checked,
+            taken: []
         });
+        document.getElementById('mName').value = "";
+        document.getElementById('mTime').value = "";
+        document.getElementById('sDate').value = "";
+        document.getElementById('eDate').value = "";
+        document.getElementById('mFile').value = "";
+        alert("✅ Medicine save ho gayi!");
     }
 
-    const toB64 = f => new Promise(r => { const rd=new FileReader(); rd.readAsDataURL(f); rd.onload=()=>r(rd.result); });
+    const toB64 = f => new Promise(r => { const rd = new FileReader(); rd.readAsDataURL(f); rd.onload = () => r(rd.result); });
 
+    // ── Firestore Snapshot ────────────────────────────────
+    let allMeds = [];
     db.collection("medicines").onSnapshot(snap => {
+        allMeds = [];
         document.getElementById('list').innerHTML = "";
         snap.forEach(doc => {
+            allMeds.push({ id: doc.id, data: doc.data() });
             render(doc.id, doc.data());
+            if (monitorIntervals[doc.id]) clearInterval(monitorIntervals[doc.id]);
             monitor(doc.id, doc.data());
         });
+        filterMeds();
     });
 
+    // ── Render ────────────────────────────────────────────
     function render(id, data) {
         let cal = "";
-        let curr = new Date(data.start), last = new Date(data.end);
-        while(curr <= last) {
-            const dStr = curr.toDateString(), isT = data.taken.includes(dStr);
-            cal += `<div class="day-box ${isT?'taken':''}" onclick="markTaken('${id}','${dStr}')">${curr.getDate()}</div>`;
-            curr.setDate(curr.getDate() + 1);
+        if (data.start && data.end) {
+            let curr = new Date(data.start + "T00:00:00");
+            let last = new Date(data.end + "T00:00:00");
+            if (!isNaN(curr) && !isNaN(last)) {
+                while (curr <= last) {
+                    const dStr = curr.toDateString();
+                    const isT = data.taken && data.taken.includes(dStr);
+                    cal += `<div class="day-box ${isT ? 'taken' : ''}" onclick="markTaken('${id}','${dStr}')">${curr.getDate()}</div>`;
+                    curr.setDate(curr.getDate() + 1);
+                }
+            }
+        } else {
+            cal = `<p style="color:#64748b;font-size:12px;">Koi tarikh set nahi</p>`;
         }
-        const html = `<div class="med-item"><div class="med-header" onclick="toggleList('${id}')"><div><strong>${data.name}</strong></div><div><span class="time-badge">${data.time}</span><button class="del-btn" onclick="event.stopPropagation(); del('${id}')">🗑️</button></div></div><div class="schedule-content" id="list-${id}"><div class="calendar-grid">${cal}</div></div></div>`;
+
+        const html = `
+        <div class="med-item" id="item-${id}" data-name="${data.name.toLowerCase()}">
+            <div class="med-header" onclick="toggleList('${id}')">
+                <div><strong>${data.name}</strong></div>
+                <div>
+                    <span class="time-badge">${data.time}</span>
+                    <button class="del-btn" onclick="event.stopPropagation(); del('${id}')">🗑️</button>
+                </div>
+            </div>
+            <div class="schedule-content" id="list-${id}">
+                <div class="calendar-grid">${cal}</div>
+            </div>
+        </div>`;
         document.getElementById('list').insertAdjacentHTML('beforeend', html);
     }
 
@@ -167,38 +267,51 @@
         el.style.display = (el.style.display === "block") ? "none" : "block";
     }
 
+    // ── Monitor ───────────────────────────────────────────
     function monitor(id, data) {
-        setInterval(() => {
+        monitorIntervals[id] = setInterval(() => {
+            if (!systemStarted || firing) return;
             const now = new Date();
-            const timeNow = now.getHours().toString().padStart(2,'0')+":"+now.getMinutes().toString().padStart(2,'0');
+            const timeNow = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
             const today = now.toDateString();
-            if (stoppedToday[id] === today || firing) return; 
-            if(timeNow === data.time && !data.taken.includes(today)) {
+            if (stoppedToday[id] === today) return;
+            if (timeNow === data.time && data.taken && !data.taken.includes(today)) {
                 fireAlarm(id, data);
             }
         }, 1000);
     }
 
-    // UPDATED ALARM LOGIC (With 20s Repeat)
+    // ── Alarm ─────────────────────────────────────────────
     function fireAlarm(id, data) {
-        firing = true; 
+        firing = true;
         currentMedId = id;
         document.getElementById('alarmMedName').innerText = data.name;
         document.getElementById('alarmPanel').style.display = "block";
 
         const startAlert = () => {
-            if(data.useSnd && data.sound) { audio.src = data.sound; audio.play().catch(()=>{}); }
-            if(data.useVce) { window.speechSynthesis.cancel(); window.speechSynthesis.speak(new SpeechSynthesisUtterance("Medicine time for " + data.name)); }
-            if(data.useVib && navigator.vibrate) navigator.vibrate([600,200,600]);
+            if (data.useSnd && data.sound) {
+                audio.src = data.sound;
+                audio.play().catch(() => {});
+            }
+            // FIX: Voice for Android WebView
+            if (data.useVce && window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+                setTimeout(() => {
+                    const msg = new SpeechSynthesisUtterance("Medicine time for " + data.name);
+                    msg.lang = 'en-US';
+                    msg.rate = 0.9;
+                    msg.volume = 1;
+                    window.speechSynthesis.speak(msg);
+                }, 300);
+            }
+            if (data.useVib && navigator.vibrate) navigator.vibrate([600, 200, 600, 200, 600]);
         };
 
         startAlert();
 
         if (data.repeat) {
             clearInterval(persistentInterval);
-            persistentInterval = setInterval(() => {
-                if (firing) startAlert();
-            }, 20000); // 20 Seconds
+            persistentInterval = setInterval(() => { if (firing) startAlert(); }, 20000);
         }
     }
 
@@ -210,24 +323,40 @@
     }
 
     function silence() {
-        firing = false; 
-        clearInterval(persistentInterval); 
-        audio.pause(); audio.src = "";
-        window.speechSynthesis.cancel(); 
+        firing = false;
+        clearInterval(persistentInterval);
+        audio.pause();
+        audio.currentTime = 0;
+        audio.src = "";
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
         document.getElementById('alarmPanel').style.display = "none";
     }
 
+    // ── Mark Taken ────────────────────────────────────────
     function markTaken(id, dStr) {
         const ref = db.collection("medicines").doc(id);
         ref.get().then(doc => {
-            let t = doc.data().taken || [];
-            if(t.includes(dStr)) ref.update({ taken: firebase.firestore.FieldValue.arrayRemove(dStr) });
+            const t = doc.data().taken || [];
+            if (t.includes(dStr)) ref.update({ taken: firebase.firestore.FieldValue.arrayRemove(dStr) });
             else ref.update({ taken: firebase.firestore.FieldValue.arrayUnion(dStr) });
         });
     }
 
-    function del(id) { if(confirm("Delete?")) db.collection("medicines").doc(id).delete(); }
-    function filterMeds() { /* Same as before */ }
+    function del(id) {
+        if (confirm("Delete karna chahte hain?")) {
+            if (monitorIntervals[id]) { clearInterval(monitorIntervals[id]); delete monitorIntervals[id]; }
+            db.collection("medicines").doc(id).delete();
+        }
+    }
+
+    // ── Search ────────────────────────────────────────────
+    function filterMeds() {
+        const q = document.getElementById('searchBox').value.toLowerCase().trim();
+        document.querySelectorAll('.med-item').forEach(item => {
+            const name = item.getAttribute('data-name') || "";
+            item.classList.toggle('hidden', !name.includes(q));
+        });
+    }
 </script>
 </body>
 </html>
