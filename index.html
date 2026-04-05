@@ -22,21 +22,26 @@
             position: fixed; top: 0; left: 0; right: 0; z-index: 10000;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-bottom: 3px solid var(--danger);
         }
-        .stop-btn { 
-            background: var(--danger); color: white; padding: 15px; border-radius: 10px; 
-            font-weight: bold; margin-top: 10px; cursor: pointer; border: none; 
-            width: 100%; font-size: 16px; -webkit-appearance: none; touch-action: manipulation;
-        }
-        .snooze-btn { 
-            background: var(--accent); color: white; padding: 10px; border-radius: 10px; 
-            margin-top: 10px; cursor: pointer; border: none; width: 100%;
-            -webkit-appearance: none; touch-action: manipulation;
-        }
+        .stop-btn { background: var(--danger); color: white; padding: 15px; border-radius: 10px; font-weight: bold; margin-top: 10px; cursor: pointer; border: none; width: 100%; font-size: 16px; touch-action: manipulation; }
+        .snooze-btn { background: var(--accent); color: white; padding: 10px; border-radius: 10px; margin-top: 10px; cursor: pointer; border: none; width: 100%; touch-action: manipulation; }
+
         .input-card { background: var(--card); padding: 15px; border-radius: 15px; border: 1px solid #334155; margin-bottom: 15px; }
-        input, .btn { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; }
-        .btn { background: var(--accent); border: none; font-weight: bold; height: 45px; cursor: pointer; -webkit-appearance: none; touch-action: manipulation; }
-        .btn-pdf { background: var(--success); margin-top: 10px; border: none; font-size: 14px; }
-        #searchBox { background: #1e293b; border: 1px solid var(--accent); margin-bottom: 15px; }
+        input[type="text"], input[type="time"], input[type="date"] { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; }
+        
+        /* ✅ File input styled nicely for mobile */
+        .file-label {
+            display: block; margin-top: 8px; padding: 10px;
+            background: #0f172a; border: 1px dashed #3b82f6;
+            border-radius: 8px; text-align: center;
+            color: #3b82f6; font-size: 13px; cursor: pointer;
+        }
+        #mFile { display: none; }
+        #fileName { font-size: 11px; color: #10b981; margin-top: 4px; text-align: center; }
+
+        .btn { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; background: var(--accent); border: none; color: white; font-weight: bold; height: 45px; cursor: pointer; touch-action: manipulation; box-sizing: border-box; }
+        .btn-pdf { background: var(--success); }
+        #searchBox { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--accent); background: #1e293b; color: white; box-sizing: border-box; margin-bottom: 15px; }
+
         .med-item { background: var(--card); border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid var(--accent); overflow: hidden; }
         .med-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 5px 0; }
         .time-badge { background: #0f172a; padding: 4px 10px; border-radius: 6px; font-size: 14px; color: var(--accent); font-weight: bold; }
@@ -49,7 +54,7 @@
         .del-btn { color: #64748b; background: none; border: none; font-size: 18px; cursor: pointer; margin-left: 10px; touch-action: manipulation; padding: 5px; }
         #status { font-size: 11px; text-align: center; color: #94a3b8; margin-bottom: 10px; font-weight: bold; }
         .hidden { display: none !important; }
-        #startBtn { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: bold; margin-bottom: 10px; cursor: pointer; touch-action: manipulation; display: block; }
+        #startBtn { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: bold; margin-bottom: 10px; cursor: pointer; touch-action: manipulation; }
         #startBtn.active { background: var(--success); }
     </style>
 </head>
@@ -63,7 +68,7 @@
         <button class="snooze-btn" id="snoozeBtn">⏳ SNOOZE / WAIT</button>
     </div>
 
-    <button id="startBtn" onclick="initSystem()">▶ START SYSTEM (Tap Here First)</button>
+    <button id="startBtn" onclick="initSystem()">▶ START SYSTEM (Pehle Yahan Tapein)</button>
     <div id="status">⚠️ System band hai</div>
 
     <div class="input-card">
@@ -73,6 +78,12 @@
             <input type="date" id="sDate" style="flex:1">
             <input type="date" id="eDate" style="flex:1">
         </div>
+
+        <!-- ✅ Sound file - mobile friendly -->
+        <label class="file-label" for="mFile">🎵 Sound File Select Karein (Optional)</label>
+        <input type="file" id="mFile" accept="audio/*">
+        <div id="fileName">Koi file select nahi</div>
+
         <div class="settings-row">
             <div class="opt-box">🔊 Audio <br> <input type="checkbox" id="cSnd" checked></div>
             <div class="opt-box">📳 Vib <br> <input type="checkbox" id="cVib" checked></div>
@@ -86,6 +97,9 @@
     <input type="text" id="searchBox" placeholder="Search medicine...">
     <div id="list"></div>
 </div>
+
+<!-- Hidden audio element -->
+<audio id="alarmAudio" loop></audio>
 
 <script>
     const firebaseConfig = {
@@ -105,6 +119,13 @@
     let systemStarted = false;
     let monitorIntervals = {};
     let audioCtx = null;
+    const alarmAudio = document.getElementById('alarmAudio');
+
+    // Show selected file name
+    document.getElementById('mFile').addEventListener('change', function() {
+        const f = this.files[0];
+        document.getElementById('fileName').innerText = f ? "✅ " + f.name : "Koi file select nahi";
+    });
 
     let stoppedToday = JSON.parse(localStorage.getItem('stoppedAlarms')) || {};
     const todayStr = new Date().toDateString();
@@ -121,7 +142,7 @@
         if (systemStarted) return;
         systemStarted = true;
 
-        // ✅ Web Audio API unlock - Android WebView ke liye
+        // ✅ Web Audio API unlock
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const buf = audioCtx.createBuffer(1, 1, 22050);
         const src = audioCtx.createBufferSource();
@@ -129,8 +150,12 @@
         src.connect(audioCtx.destination);
         src.start(0);
 
-        // ✅ Voice unlock
+        // ✅ HTML Audio unlock
+        alarmAudio.play().then(() => { alarmAudio.pause(); alarmAudio.currentTime = 0; }).catch(() => {});
+
+        // ✅ Voice unlock - voices load hone ka wait karein
         if (window.speechSynthesis) {
+            window.speechSynthesis.getVoices(); // preload
             const u = new SpeechSynthesisUtterance('');
             u.volume = 0;
             window.speechSynthesis.speak(u);
@@ -144,7 +169,7 @@
         document.getElementById('startBtn').classList.add('active');
     }
 
-    // ✅ Web Audio API se beep - koi file zaroorat nahi, 100% kaam karta hai
+    // ✅ Beep via Web Audio API (backup agar file nahi hai)
     function playBeep() {
         if (!audioCtx) return;
         try {
@@ -162,6 +187,35 @@
                 osc.stop(audioCtx.currentTime + offset + 0.4);
             });
         } catch(e) {}
+    }
+
+    // ✅ Voice - Android WebView ke liye special fix
+    function speakVoice(name) {
+        if (!window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+
+        const speak = () => {
+            const msg = new SpeechSynthesisUtterance("Medicine time for " + name);
+            msg.lang = 'en-US';
+            msg.rate = 0.85;
+            msg.pitch = 1;
+            msg.volume = 1;
+
+            // Android WebView mein voices late load hoti hain
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length > 0) {
+                const enVoice = voices.find(v => v.lang.startsWith('en'));
+                if (enVoice) msg.voice = enVoice;
+            }
+            window.speechSynthesis.speak(msg);
+        };
+
+        // Agar voices abhi tak load nahi huin
+        if (window.speechSynthesis.getVoices().length === 0) {
+            window.speechSynthesis.onvoiceschanged = () => { speak(); };
+        } else {
+            setTimeout(speak, 500);
+        }
     }
 
     async function downloadHistoryPDF() {
@@ -182,14 +236,18 @@
         } catch (e) { alert("PDF Error: " + e.message); }
     }
 
+    const toB64 = f => new Promise(r => { const rd = new FileReader(); rd.readAsDataURL(f); rd.onload = () => r(rd.result); });
+
     async function addMed() {
         const n = document.getElementById('mName').value.trim();
         const t = document.getElementById('mTime').value;
         const s = document.getElementById('sDate').value;
         const e = document.getElementById('eDate').value;
+        const f = document.getElementById('mFile').files[0];
         if (!n || !t) return alert("Medicine name aur time zaroor bharein!");
+        let sd = f ? await toB64(f) : "";
         await db.collection("medicines").add({
-            name: n, time: t, start: s, end: e,
+            name: n, time: t, start: s, end: e, sound: sd,
             useSnd: document.getElementById('cSnd').checked,
             useVib: document.getElementById('cVib').checked,
             useVce: document.getElementById('cVce').checked,
@@ -200,6 +258,8 @@
         document.getElementById('mTime').value = "";
         document.getElementById('sDate').value = "";
         document.getElementById('eDate').value = "";
+        document.getElementById('mFile').value = "";
+        document.getElementById('fileName').innerText = "Koi file select nahi";
         alert("✅ Medicine save ho gayi!");
     }
 
@@ -270,17 +330,24 @@
         document.getElementById('alarmPanel').style.display = "block";
 
         const startAlert = () => {
-            if (data.useSnd) playBeep(); // ✅ Web Audio beep
-            if (data.useVce && window.speechSynthesis) {
-                window.speechSynthesis.cancel();
-                setTimeout(() => {
-                    const msg = new SpeechSynthesisUtterance("Medicine time for " + data.name);
-                    msg.lang = 'en-US';
-                    msg.rate = 0.9;
-                    msg.volume = 1;
-                    window.speechSynthesis.speak(msg);
-                }, 600);
+            if (data.useSnd) {
+                if (data.sound) {
+                    // ✅ Custom audio file se play
+                    alarmAudio.src = data.sound;
+                    alarmAudio.play().catch(() => {
+                        // Agar file fail ho to beep bajao
+                        playBeep();
+                    });
+                } else {
+                    // ✅ Koi file nahi to Web Audio beep
+                    playBeep();
+                }
             }
+
+            // ✅ Voice
+            if (data.useVce) speakVoice(data.name);
+
+            // ✅ Vibration
             if (data.useVib && navigator.vibrate) navigator.vibrate([600, 200, 600, 200, 600]);
         };
 
@@ -301,6 +368,9 @@
     function silence() {
         firing = false;
         clearInterval(persistentInterval);
+        alarmAudio.pause();
+        alarmAudio.currentTime = 0;
+        alarmAudio.src = "";
         if (window.speechSynthesis) window.speechSynthesis.cancel();
         document.getElementById('alarmPanel').style.display = "none";
     }
