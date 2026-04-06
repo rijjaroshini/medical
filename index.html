@@ -1,191 +1,96 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ur">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Meds Tracker Pro + Notes</title>
-    
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Clock</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --accent: #3b82f6; --danger: #ef4444; --success: #10b981; --text: #f1f5f9; }
-        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 10px; margin: 0; }
-        .container { max-width: 400px; margin: auto; }
-
-        #alarmPanel {
-            display: none; background: var(--card); color: white; padding: 20px;
-            border-radius: 0 0 20px 20px; text-align: center;
-            position: fixed; top: 0; left: 0; right: 0; z-index: 10000;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-bottom: 3px solid var(--danger);
+        /* CSS: ڈیزائن اور اسٹائلنگ */
+        body {
+            background-color: #0f172a; /* گہرا نیلا رنگ */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Courier New', Courier, monospace;
         }
-        .stop-btn { background: var(--danger); color: white; padding: 15px; border-radius: 10px; font-weight: bold; margin-top: 10px; cursor: pointer; border: none; width: 100%; font-size: 16px; touch-action: manipulation; }
-        .snooze-btn { background: var(--accent); color: white; padding: 10px; border-radius: 10px; margin-top: 10px; cursor: pointer; border: none; width: 100%; touch-action: manipulation; }
 
-        #statusBar { background: var(--card); border-radius: 10px; padding: 10px 15px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
-        #statusText { font-size: 12px; font-weight: bold; }
+        .clock-container {
+            background: #1e293b;
+            padding: 30px 50px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 10px rgba(59, 130, 246, 0.2);
+            border: 2px solid #3b82f6;
+            text-align: center;
+        }
 
-        .input-card { background: var(--card); padding: 15px; border-radius: 15px; border: 1px solid #334155; margin-bottom: 15px; }
-        input[type="text"], input[type="time"], input[type="date"], textarea { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 14px; }
-        textarea { height: 60px; resize: none; }
-        
-        .btn { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; background: var(--accent); border: none; color: white; font-weight: bold; height: 45px; cursor: pointer; touch-action: manipulation; }
-        .btn-pdf { background: var(--success); }
-        #searchBox { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--accent); background: #1e293b; color: white; margin-bottom: 15px; }
+        .time {
+            font-size: 60px;
+            font-weight: bold;
+            color: #3b82f6;
+            text-shadow: 0 0 20px #3b82f6, 0 0 40px #1d4ed8;
+            letter-spacing: 5px;
+        }
 
-        .med-item { background: var(--card); border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid var(--accent); }
-        .med-note { font-size: 12px; color: #94a3b8; background: #0f172a; padding: 8px; border-radius: 6px; margin-top: 8px; font-style: italic; }
-        
-        .checklist { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #334155; }
-        .check-item { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 5px; color: #cbd5e1; }
-        .check-item input { width: 18px; height: 18px; accent-color: var(--success); }
+        .date {
+            margin-top: 10px;
+            color: #94a3b8;
+            font-size: 18px;
+            letter-spacing: 2px;
+        }
 
-        .time-badge { background: #0f172a; padding: 4px 10px; border-radius: 6px; font-size: 14px; color: var(--accent); font-weight: bold; }
-        .del-btn { color: #64748b; background: none; border: none; font-size: 18px; cursor: pointer; margin-left: 10px; }
-        .hidden { display: none !important; }
+        .ampm {
+            font-size: 25px;
+            margin-left: 10px;
+            color: #10b981; /* سبز رنگ AM/PM کے لیے */
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div id="alarmPanel">
-        <h2 style="margin:0; color:var(--danger);">💊 MEDICINE TIME!</h2>
-        <p id="alarmMedName" style="font-size:20px; margin:10px 0; font-weight:bold;"></p>
-        <button class="stop-btn" id="stopBtn">🛑 STOP FOR TODAY</button>
-        <button class="snooze-btn" id="snoozeBtn">⏳ SNOOZE / WAIT</button>
-    </div>
-
-    <div id="statusBar">
-        <div id="statusText" style="color:#f59e0b;">⚠️ Screen tap karein activate karne ke liye</div>
-    </div>
-
-    <div class="input-card">
-        <input type="text" id="mName" placeholder="Medicine Name (e.g. Panadol)">
-        <textarea id="mNotes" placeholder="Notes (e.g. Khane ke baad leni hai...)"></textarea>
-        <input type="time" id="mTime">
-        <div style="display:flex; gap:5px;">
-            <input type="date" id="sDate" style="flex:1">
-            <input type="date" id="eDate" style="flex:1">
+    <div class="clock-container">
+        <div class="time" id="timeDisplay">
+            00:00:00 <span class="ampm" id="ampmDisplay">AM</span>
         </div>
-        <button class="btn" id="saveBtn">💾 Save Schedule</button>
+        <div class="date" id="dateDisplay">
+            Monday, April 06, 2026
+        </div>
     </div>
 
-    <input type="text" id="searchBox" placeholder="🔍 Search medicine...">
-    <div id="list"></div>
-</div>
-
-<audio id="alarmAudio" loop></audio>
-
-<script>
-    // Firebase Config (Same as before)
-    const firebaseConfig = {
-        apiKey: "AIzaSyCBUF6IDj-YVEFovPjg9LvI7NOHhYEU_HE",
-        authDomain: "medstracker-2f8d8.firebaseapp.com",
-        projectId: "medstracker-2f8d8",
-        storageBucket: "medstracker-2f8d8.firebasestorage.app",
-        messagingSenderId: "689229781527",
-        appId: "1:689229781527:web:9b55a840aed8368d2c5a52"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const alarmAudio = document.getElementById('alarmAudio');
-
-    let firing = false, audioUnlocked = false, currentMedId = null;
-
-    // Unlock System
-    document.addEventListener('click', () => {
-        if (audioUnlocked) return;
-        audioUnlocked = true;
-        if ("Notification" in window) Notification.requestPermission();
-        document.getElementById('statusText').innerText = "● SYSTEM ACTIVE ✅";
-        document.getElementById('statusText').style.color = "#10b981";
-    }, { once: true });
-
-    // Add Med with Notes
-    async function addMed() {
-        const n = document.getElementById('mName').value.trim();
-        const nt = document.getElementById('mNotes').value.trim();
-        const t = document.getElementById('mTime').value;
-        if (!n || !t) return alert("Name aur Time lazmi hain!");
-
-        await db.collection("medicines").add({
-            name: n, notes: nt, time: t,
-            start: document.getElementById('sDate').value,
-            end: document.getElementById('eDate').value,
-            taken: [],
-            createdAt: new Date().getTime()
-        });
-
-        document.getElementById('mName').value = "";
-        document.getElementById('mNotes').value = "";
-        alert("✅ Save ho gaya!");
-    }
-
-    document.getElementById('saveBtn').addEventListener('click', addMed);
-
-    // Render with Checklist
-    db.collection("medicines").orderBy("createdAt", "desc").onSnapshot(snap => {
-        const list = document.getElementById('list');
-        list.innerHTML = "";
-        snap.forEach(doc => {
-            const data = doc.data();
-            const id = doc.id;
-            const today = new Date().toDateString();
+    <script>
+        // JavaScript: وقت کو ہر سیکنڈ میں اپ ڈیٹ کرنے کے لیے
+        function updateClock() {
+            const now = new Date();
             
-            // Checklist state from LocalStorage
-            const isWaterChecked = localStorage.getItem(`water_${id}_${today}`) === 'true';
-            const isFoodChecked = localStorage.getItem(`food_${id}_${today}`) === 'true';
+            let hours = now.getHours();
+            let minutes = now.getMinutes();
+            let seconds = now.getSeconds();
+            let ampm = hours >= 12 ? 'PM' : 'AM';
 
-            const html = `
-                <div class="med-item" data-name="${data.name.toLowerCase()}">
-                    <div style="display:flex; justify-content:space-between; align-items:start;">
-                        <div>
-                            <strong style="font-size:16px;">${data.name}</strong>
-                            <div class="time-badge" style="margin-top:5px; display:inline-block;">${data.time}</div>
-                        </div>
-                        <button class="del-btn" onclick="del('${id}')">🗑️</button>
-                    </div>
-                    
-                    ${data.notes ? `<div class="med-note">📝 ${data.notes}</div>` : ''}
+            // 12 گھنٹوں والا فارمیٹ (12-hour format)
+            hours = hours % 12;
+            hours = hours ? hours : 12; // اگر 0 ہو تو اسے 12 کر دے
 
-                    <div class="checklist">
-                        <div class="check-item">
-                            <input type="checkbox" ${isWaterChecked ? 'checked' : ''} 
-                                onchange="saveCheck('${id}', 'water', this.checked)"> 
-                            💧 Pani pi liya?
-                        </div>
-                        <div class="check-item">
-                            <input type="checkbox" ${isFoodChecked ? 'checked' : ''} 
-                                onchange="saveCheck('${id}', 'food', this.checked)"> 
-                            🍽️ Khana kha liya?
-                        </div>
-                    </div>
-                </div>
-            `;
-            list.insertAdjacentHTML('beforeend', html);
-        });
-    });
+            // اگر ہندسہ 10 سے چھوٹا ہو تو شروع میں 0 لگانا
+            hours = hours < 10 ? '0' + hours : hours;
+            minutes = minutes < 10 ? '0' + minutes : minutes;
+            seconds = seconds < 10 ? '0' + seconds : seconds;
 
-    // Save Checklist State
-    window.saveCheck = (id, type, val) => {
-        const today = new Date().toDateString();
-        localStorage.setItem(`${type}_${id}_${today}`, val);
-    };
+            // وقت کو اسکرین پر ڈالنا
+            document.getElementById('timeDisplay').innerHTML = 
+                `${hours}:${minutes}:${seconds} <span class="ampm">${ampm}</span>`;
 
-    window.del = (id) => {
-        if(confirm("Delete karein?")) db.collection("medicines").doc(id).delete();
-    };
+            // تاریخ کو فارمیٹ کرنا
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('dateDisplay').innerText = now.toLocaleDateString('en-US', options);
+        }
 
-    // Filter
-    document.getElementById('searchBox').addEventListener('input', (e) => {
-        const q = e.target.value.toLowerCase();
-        document.querySelectorAll('.med-item').forEach(item => {
-            item.classList.toggle('hidden', !item.getAttribute('data-name').includes(q));
-        });
-    });
-</script>
+        // ہر 1 سیکنڈ (1000ms) کے بعد فنکشن کو دوبارہ چلانا
+        setInterval(updateClock, 1000);
+
+        // پیج لوڈ ہوتے ہی گھڑی شروع کرنا
+        updateClock();
+    </script>
 </body>
 </html>
