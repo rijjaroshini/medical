@@ -71,7 +71,7 @@
     </div>
 
     <div id="statusBar">
-        <span id="statusText" style="color:#f59e0b;">⚠️ Screen tap karein activate karne ke liye</span>
+        <div id="statusText" style="color:#f59e0b;">⚠️ Screen tap karein activate karne ke liye</div>
     </div>
 
     <div class="input-card">
@@ -101,7 +101,6 @@
 <audio id="alarmAudio" loop></audio>
 
 <script>
-    // ── Firebase (messaging NAHI - sirf Firestore) ────────
     const firebaseConfig = {
         apiKey: "AIzaSyCBUF6IDj-YVEFovPjg9LvI7NOHhYEU_HE",
         authDomain: "medstracker-2f8d8.firebaseapp.com",
@@ -117,19 +116,29 @@
     let firing = false, persistentInterval = null, currentMedId = null;
     let audioUnlocked = false, monitorIntervals = {}, audioCtx = null;
 
-    // Aaj ke stoppedAlarms load karo
     let stoppedToday = JSON.parse(localStorage.getItem('stoppedAlarms')) || {};
     const todayStr = new Date().toDateString();
     Object.keys(stoppedToday).forEach(k => { if (stoppedToday[k] !== todayStr) delete stoppedToday[k]; });
     localStorage.setItem('stoppedAlarms', JSON.stringify(stoppedToday));
 
-    // ── Audio unlock (pehli touch par) ───────────────────
-    document.addEventListener('touchstart', unlockAudio, { once: true });
-    document.addEventListener('click', unlockAudio, { once: true });
+    // --- Service Worker Registration ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js').then(reg => {
+                console.log('SW Registered!', reg);
+            }).catch(err => console.log('SW Failed!', err));
+        });
+    }
 
-    function unlockAudio() {
+    // --- Audio & Notification Unlock ---
+    document.addEventListener('touchstart', unlockSystem, { once: true });
+    document.addEventListener('click', unlockSystem, { once: true });
+
+    function unlockSystem() {
         if (audioUnlocked) return;
         audioUnlocked = true;
+        
+        // 1. Audio Unlock
         try {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const buf = audioCtx.createBuffer(1, 1, 22050);
@@ -137,11 +146,18 @@
             src.buffer = buf; src.connect(audioCtx.destination); src.start(0);
         } catch(e) {}
         alarmAudio.play().then(() => { alarmAudio.pause(); alarmAudio.currentTime = 0; }).catch(() => {});
+        
+        // 2. Notification Permission
+        if ("Notification" in window) {
+            Notification.requestPermission().then(permission => {
+                console.log("Notification permission:", permission);
+            });
+        }
+
         document.getElementById('statusText').innerText = "● SYSTEM ACTIVE ✅";
         document.getElementById('statusText').style.color = "#10b981";
     }
 
-    // ── Buttons ───────────────────────────────────────────
     document.getElementById('stopBtn').addEventListener('click', e => { e.stopPropagation(); permanentStop(); });
     document.getElementById('snoozeBtn').addEventListener('click', e => { e.stopPropagation(); silence(); });
     document.getElementById('saveBtn').addEventListener('click', addMed);
@@ -151,7 +167,6 @@
         document.getElementById('fileName').innerText = this.files[0] ? "✅ " + this.files[0].name : "Koi file select nahi";
     });
 
-    // ── Beep ─────────────────────────────────────────────
     function playBeep() {
         if (!audioCtx) return;
         try {
@@ -167,7 +182,6 @@
         } catch(e) {}
     }
 
-    // ── PDF ───────────────────────────────────────────────
     async function downloadHistoryPDF() {
         try {
             const { jsPDF } = window.jspdf;
@@ -186,7 +200,6 @@
         } catch(e) { alert("PDF Error: " + e.message); }
     }
 
-    // ── Add Medicine ──────────────────────────────────────
     const toB64 = f => new Promise(r => { const rd = new FileReader(); rd.readAsDataURL(f); rd.onload = () => r(rd.result); });
 
     async function addMed() {
@@ -210,7 +223,6 @@
         alert("✅ Medicine save ho gayi!");
     }
 
-    // ── Firestore real-time ───────────────────────────────
     db.collection("medicines").onSnapshot(snap => {
         document.getElementById('loadingMsg').style.display = 'none';
         document.getElementById('list').innerHTML = "";
@@ -228,7 +240,6 @@
         document.getElementById('loadingMsg').innerText = "❌ Internet check karein";
     });
 
-    // ── Render ────────────────────────────────────────────
     function render(id, data) {
         const taken = data.taken || [];
         const today = new Date().toDateString();
@@ -269,7 +280,6 @@
         </div>`);
     }
 
-    // ── Monitor ───────────────────────────────────────────
     function monitor(id, data) {
         monitorIntervals[id] = setInterval(() => {
             if (!audioUnlocked || firing) return;
@@ -281,11 +291,20 @@
         }, 1000);
     }
 
-    // ── Alarm ─────────────────────────────────────────────
     function fireAlarm(id, data) {
         firing = true; currentMedId = id;
         document.getElementById('alarmMedName').innerText = data.name;
         document.getElementById('alarmPanel').style.display = "block";
+
+        // --- Visual Notification ---
+        if (Notification.permission === "granted") {
+            new Notification("💊 Medicine Time!", {
+                body: `Abhi ${data.name} lene ka waqt hai.`,
+                icon: "https://cdn-icons-png.flaticon.com/512/822/822143.png",
+                requireInteraction: true
+            });
+        }
+
         const startAlert = () => {
             if (data.useSnd) {
                 if (data.sound) { alarmAudio.src = data.sound; alarmAudio.play().catch(() => playBeep()); }
