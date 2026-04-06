@@ -3,94 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Digital Clock</title>
+    <title>Digital Clock & Permissions</title>
     <style>
         /* CSS: ڈیزائن اور اسٹائلنگ */
         body {
-            background-color: #0f172a; /* گہرا نیلا رنگ */
+            background-color: #0f172a; 
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+
+        .main-container {
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            border: 2px solid #3b82f6;
+            text-align: center;
+            width: 90%;
+            max-width: 450px;
+        }
+
+        /* گھڑی کا اسٹائل */
+        .time {
+            font-size: 50px;
+            font-weight: bold;
+            color: #3b82f6;
+            text-shadow: 0 0 15px #3b82f6;
             font-family: 'Courier New', Courier, monospace;
         }
 
-        .clock-container {
-            background: #1e293b;
-            padding: 30px 50px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 10px rgba(59, 130, 246, 0.2);
-            border: 2px solid #3b82f6;
-            text-align: center;
-        }
-
-        .time {
-            font-size: 60px;
-            font-weight: bold;
-            color: #3b82f6;
-            text-shadow: 0 0 20px #3b82f6, 0 0 40px #1d4ed8;
-            letter-spacing: 5px;
-        }
-
         .date {
-            margin-top: 10px;
+            margin-bottom: 25px;
             color: #94a3b8;
-            font-size: 18px;
-            letter-spacing: 2px;
+            font-size: 16px;
+            letter-spacing: 1px;
         }
 
         .ampm {
-            font-size: 25px;
-            margin-left: 10px;
-            color: #10b981; /* سبز رنگ AM/PM کے لیے */
+            font-size: 20px;
+            color: #10b981;
         }
+
+        /* بٹنز کا اسٹائل */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: 0.3s;
+            color: white;
+        }
+
+        .btn-notif { background: #f59e0b; }
+        .btn-cam { background: #10b981; }
+        .btn-mic { background: #3b82f6; }
+        .btn-gallery { background: #ec4899; }
+        .btn-phone { background: #8b5cf6; grid-column: span 2; }
+
+        button:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.2);
+        }
+
+        input[type="file"] { display: none; }
     </style>
 </head>
 <body>
 
-    <div class="clock-container">
+    <div class="main-container">
         <div class="time" id="timeDisplay">
             00:00:00 <span class="ampm" id="ampmDisplay">AM</span>
         </div>
-        <div class="date" id="dateDisplay">
-            Monday, April 06, 2026
+        <div class="date" id="dateDisplay">Loading...</div>
+
+        <hr style="border: 0.5px solid #334155; margin: 20px 0;">
+
+        <div class="controls">
+            <button class="btn-notif" onclick="requestNotification()">Notifications</button>
+            <button class="btn-cam" onclick="openCamera()">Camera</button>
+            <button class="btn-mic" onclick="startVoice()">Voice / Mic</button>
+            
+            <input type="file" accept="image/*" id="galleryInput">
+            <button class="btn-gallery" onclick="document.getElementById('galleryInput').click()">Gallery</button>
+            
+            <a href="tel:123456789" style="grid-column: span 2; text-decoration: none;">
+                <button class="btn-phone" style="width: 100%;">Make a Phone Call</button>
+            </a>
         </div>
     </div>
 
     <script>
-        // JavaScript: وقت کو ہر سیکنڈ میں اپ ڈیٹ کرنے کے لیے
+        // --- گھڑی کا فنکشن ---
         function updateClock() {
             const now = new Date();
-            
             let hours = now.getHours();
             let minutes = now.getMinutes();
             let seconds = now.getSeconds();
             let ampm = hours >= 12 ? 'PM' : 'AM';
 
-            // 12 گھنٹوں والا فارمیٹ (12-hour format)
-            hours = hours % 12;
-            hours = hours ? hours : 12; // اگر 0 ہو تو اسے 12 کر دے
-
-            // اگر ہندسہ 10 سے چھوٹا ہو تو شروع میں 0 لگانا
+            hours = hours % 12 || 12;
             hours = hours < 10 ? '0' + hours : hours;
             minutes = minutes < 10 ? '0' + minutes : minutes;
             seconds = seconds < 10 ? '0' + seconds : seconds;
 
-            // وقت کو اسکرین پر ڈالنا
             document.getElementById('timeDisplay').innerHTML = 
                 `${hours}:${minutes}:${seconds} <span class="ampm">${ampm}</span>`;
 
-            // تاریخ کو فارمیٹ کرنا
             const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
             document.getElementById('dateDisplay').innerText = now.toLocaleDateString('en-US', options);
         }
-
-        // ہر 1 سیکنڈ (1000ms) کے بعد فنکشن کو دوبارہ چلانا
         setInterval(updateClock, 1000);
-
-        // پیج لوڈ ہوتے ہی گھڑی شروع کرنا
         updateClock();
+
+        // --- اجازت ناموں کے فنکشنز ---
+        
+        function requestNotification() {
+            Notification.requestPermission().then(perm => {
+                alert("Notification status: " + perm);
+            });
+        }
+
+        async function openCamera() {
+            try {
+                await navigator.mediaDevices.getUserMedia({ video: true });
+                alert("Camera Access Granted!");
+            } catch (err) {
+                alert("Camera Error: " + err.message);
+            }
+        }
+
+        async function startVoice() {
+            try {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                alert("Microphone Access Granted!");
+            } catch (err) {
+                alert("Mic Error: " + err.message);
+            }
+        }
     </script>
 </body>
 </html>
